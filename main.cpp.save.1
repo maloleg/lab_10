@@ -1,0 +1,18 @@
+#include <QCoreApplication>
+{
+
+    QCoreApplication a(argc, argv);
+
+
+    QTextStream qin (stdin);
+
+    QTextStream qout(stdout);
+
+    QString string;
+
+    qin >> string;
+
+    qout << string;
+
+   return a.exec();
+}
