@@ -12,7 +12,7 @@ void Console::run()
 
     for (int64_t i = 0; i < files.size(); i++){
         v.push_back(std::make_pair(files[i].fileName().toUtf8().constData(), files[i].size()));
-        std::cout << files[i].fileName().toUtf8().constData() << "   " << files[i].size() << "\n";
+        // std::cout << files[i].fileName().toUtf8().constData() << "   " << files[i].size() << "\n";
         AvgSize += files[i].size();
     }
   
@@ -20,14 +20,12 @@ void Console::run()
               [](const std::pair<std::string, uint64_t> &left, const std::pair<std::string, uint64_t> &right){
         return left.second < right.second;
     });
-    // std::cout << "First message" << std::endl;
+
     std::cout << ">" << std::flush;
     connect(m_notifier, SIGNAL(activated(int)), this, SLOT(readCommand()));
-    // connect(this, SIGNAL(StartChange()), this, SLOT(SLOT_WhatToDo()));
     connect(this, SIGNAL(Start()), this, SLOT(SLOT_Start()));
     connect(this, SIGNAL(Stop()), this, SLOT(SLOT_Stop()));
     connect(this, SIGNAL(Exit()), this, SLOT(SLOT_Exit())); 
-    connect(this, SIGNAL(Restart()), this, SLOT(restartApp()));
     connect(this, SIGNAL(TimerChange(uint64_t)), this, SLOT(SLOT_Timeout(uint64_t)));
     connect(tmr, SIGNAL(timeout()), this, SLOT(SLOT_WhatToDo()));
     tmr->start();
@@ -36,23 +34,61 @@ void Console::run()
 
 void Console::readCommand()
 {
-    // std::exit(1);
-    // std::cout << "lol mate slot is here, baby!" << std::endl;
-    std::string command;
-    std::getline(std::cin, command);
+    std::string s;
+    std::getline(std::cin, s);
 
-    // std::cout << "lol man\n command = " << command << std::endl;
+    if (regex_match(s.begin(), s.end(), std::regex("start"))) {emit Start(); std::cout << ">" << std::flush;}
+    else if (regex_match(s.begin(), s.end(), std::regex("stop"))) {emit Stop(); std::cout << ">" << std::flush;}
+    else if (regex_match(s.begin(), s.end(), std::regex("exit"))) emit Exit();
+    else if (regex_match(s.begin(), s.end(), std::regex("restart"))) emit Restart();
+    else if (regex_match(s.begin(), s.end(), std::regex("timeout\\s\\d+"))) {emit TimerChange(std::stoi(s.substr(8, s.size() - 8).c_str())); std::cout << ">" << std::flush;}
 
-    if ((command.size()  == 5 && command == "start")) emit Start();
-    if (command.size() == 7 && command == "restart") emit Restart();
-    if (command.size() == 4 && command == "stop") emit Stop();
-    if (command.size() == 4 && command == "exit") emit Exit();
-    if (command.size() > 7 && command.substr(0, 7) == "timeout"
-                && command.substr(8, command.size() - 9).find_first_not_of("0123456789") == std::string::npos){
-            // std::cout << "n=" << std::stoi(command.substr(8, command.size() - 8).c_str()) << std::endl;
-            emit TimerChange(std::stoi(command.substr(8, command.size() - 8).c_str()));
-            // this->timeout = std::stoi(command.substr(8, command.size() - 8).c_str());
+}
+
+void Console::SLOT_Start(){
+        Is_started = 1;
+}
+void Console::SLOT_Stop(){
+    Is_started = 0;
+}
+void Console::SLOT_Exit(){
+    QCoreApplication::exit(1337);
+}
+
+void Console::SLOT_Timeout(uint64_t t){
+    tmr->setInterval(1000*t);
+}
+
+void Console::SLOT_WhatToDo(){
+
+    if (Is_started) {
+        AvgSize = 0;
+        
+        if (v.size() != 0){
+            std::cout << "\n{";
+            for (uint64_t i = 0; i < v.size(); i++){
+                if (i != v.size() - 1) std::cout << v[i].first << ", ";
+                else std::cout << v[i].first;
+                AvgSize += v[i].second;
+            }
+
+            if (v.size() != 0)std::cout << "}\n>" << std::flush;
+            // std::cout << ">" << std::flush();
+            AvgSize /= v.size();
+            AvgSize *= 0.75;
+            min = abs(v[0].second-AvgSize);
+            min_n = 0;
+
+            for (uint64_t i = 0; i < v.size(); i++){
+                if (abs(AvgSize - v[i].second) < min){
+                    min = abs(AvgSize - v[i].second);
+                    min_n = i;
+                }
+            }
+            // std::cout << "AvgSize = " << AvgSize << " min = " << min << " min_n = " << min_n << "\n>" << std::flush;
+            
+            v.erase(v.begin() + min_n);
         }
-    std::cout << ">" << std::flush;
-    // emit If_Started();
+        else {std::cout << "No more elements, stopped\n>" << std::flush; emit Stop();} 
+    }
 }
