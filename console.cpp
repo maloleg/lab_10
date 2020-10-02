@@ -3,22 +3,8 @@
 
 void Console::run()
 {
-    v.clear();
-    std::string c = "";
+    
 
-    QDir CurrentDir("");
-
-    QFileInfoList files = CurrentDir.entryInfoList();
-
-    for (int64_t i = 0; i < files.size(); i++){
-        v.push_back(std::make_pair(files[i].fileName().toUtf8().constData(), files[i].size()));
-        AvgSize += files[i].size();
-    }
-  
-    std::sort(v.begin(), v.end(),
-              [](const std::pair<std::string, uint64_t> &left, const std::pair<std::string, uint64_t> &right){
-        return left.second < right.second;
-    });
 
     std::cout << ">" << std::flush;
     connect(m_notifier, SIGNAL(activated(int)), this, SLOT(readCommand()));
@@ -61,28 +47,35 @@ void Console::SLOT_Timeout(uint64_t t){
 void Console::SLOT_WhatToDo(){
     AvgSize = 0;
     
-    if (v.size() != 0){
-        std::cout << "\n{";
+     if (v.size() != 0){
         for (uint64_t i = 0; i < v.size(); i++){
-            if (i != v.size() - 1) std::cout << v[i].first << ", ";
-            else std::cout << v[i].first;
+            // if (i != v.size() - 1) std::cout << v[i].first << ", ";
+            // else std::cout << v[i].first;
             AvgSize += v[i].second;
         }
-
-        if (v.size() != 0)std::cout << "}\n>" << std::flush;
         AvgSize /= v.size();
         AvgSize *= 0.75;
-        min = abs(v[0].second-AvgSize);
+        min = sqrt(abs(v[0].second*v[0].second-AvgSize*AvgSize));
         min_n = 0;
 
         for (uint64_t i = 0; i < v.size(); i++){
-            if (abs(AvgSize - v[i].second) < min){
-                min = abs(AvgSize - v[i].second);
+            if (sqrt(abs(AvgSize*AvgSize - v[i].second*v[i].second)) < min){
+                min = sqrt(abs(AvgSize*AvgSize - v[i].second*v[i].second));
                 min_n = i;
             }
         }
-        
+        CrutchSet.erase(v[min_n].first);
         v.erase(v.begin() + min_n);
     }
-    else {std::cout << "No more elements, stopped\n>" << std::flush; emit Stop();} 
+        std::cout << "\n{";
+        for (uint64_t i = 0; i < v.size(); i++){
+            if (i != v.size() - 1) std::cout << *CrutchSet.find(v[i].first) << ", ";
+            else std::cout << *CrutchSet.find(v[i].first);
+            // AvgSize += v[i].second;
+        }
+
+        std::cout << "}\n" << std::flush;
+        
+    // }
+    // else {std::cout << "No more elements, stopped\n>" << std::flush; emit Stop();} 
 }

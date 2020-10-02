@@ -9,6 +9,8 @@
 #include <vector>
 #include <QProcess>
 #include <regex>
+#include <set>
+#include <cmath>
 class Console : public QObject {
     Q_OBJECT;
 
@@ -16,11 +18,10 @@ public:
     void run();
     Console();
     ~Console(){
-    	std::cout << "\nDestructor called\n" << std::flush;
+    	std::cout << "Destructor called\n" << std::flush;
     }
 
 signals:
-    void quit();
     void Start();
     void Stop();
     void Exit();
@@ -31,11 +32,10 @@ private:
     QSocketNotifier *m_notifier;
     QTimer *tmr;
 	double AvgSize;
-	bool Is_started;
-	bool Exitness;
 	double min;
 	uint64_t min_n;
 	std::vector<std::pair<std::string, uint64_t>> v;
+	std::set<std::string> CrutchSet;
     
 
 private slots:
@@ -54,10 +54,37 @@ private slots:
 
 inline Console::Console()
 {
-	// timeout = 0;
-	Is_started = 0;
-	Exitness = 0;
     m_notifier = new QSocketNotifier(fileno(stdin), QSocketNotifier::Read, this);
     tmr = new QTimer();
     tmr->setInterval(0);
+    v.clear();
+
+    QDir CurrentDir("");
+
+    QFileInfoList files = CurrentDir.entryInfoList();
+
+    for (int64_t i = 0; i < files.size(); i++){
+        if (files[i].isFile()){
+            v.push_back(std::make_pair(files[i].fileName().toUtf8().constData(), files[i].size()));
+            AvgSize += files[i].size();
+        }
+    }
+  
+    std::sort(v.begin(), v.end(),
+              [](const std::pair<std::string, uint64_t> &left, const std::pair<std::string, uint64_t> &right){
+        return left.second < right.second;
+    });
+
+    for (size_t i = 0; i < v.size(); i++){
+        CrutchSet.insert(v[i].first);
+    }
+
+    std::cout << "\n{";
+        for (uint64_t i = 0; i < v.size(); i++){
+            if (i != v.size() - 1) std::cout << *CrutchSet.find(v[i].first) << ", ";
+            else std::cout << *CrutchSet.find(v[i].first);
+            // AvgSize += v[i].second;
+        }
+
+        std::cout << "}\n" << std::flush;
 }
